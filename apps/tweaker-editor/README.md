@@ -1,21 +1,12 @@
-# Next.js template
+# OpenTweaker — Editor
 
-This is a Next.js template with shadcn/ui.
+This is the Next.js editor app for OpenTweaker. For full setup instructions and documentation, see the [root README](../../README.md).
 
-## Adding components
-
-To add components to your app, run the following command:
+## Running locally
 
 ```bash
-npx shadcn@latest add button
+npm install
+npm run dev
 ```
 
-This will place the ui components in the `components` directory.
-
-## Using components
-
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button";
-```
+Opens on **http://localhost:3000/editor**. The local server that proxies your app and handles file writes runs on **http://localhost:4242**.
