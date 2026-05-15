@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenTweaker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --card: #111111;
+      --border: #222222;
+      --muted: #333333;
+      --text: #f5f5f5;
+      --text-dim: #888888;
+      --primary: #f59e0b;
+      --primary-fg: #000;
+      --radius: 4px;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 12px; }
+
+    /* ── Top bar ── */
+    #topbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-bottom: 1px solid var(--border);
+      background: var(--card); position: sticky; top: 0; z-index: 10;
+    }
+    #logo { font-size: 13px; font-weight: 800; color: var(--primary); letter-spacing: -0.02em; }
+    #topbar .spacer { flex: 1; }
+    #pick-btn {
+      background: var(--muted); border: 1px solid var(--border); color: var(--text);
+      border-radius: var(--radius); padding: 4px 10px; font-size: 11px; cursor: pointer;
+      display: flex; align-items: center; gap: 5px; transition: all 120ms;
+    }
+    #pick-btn:hover { border-color: var(--primary); color: var(--primary); }
+    #pick-btn.active { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+
+    /* ── No selection state ── */
+    #empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; padding: 48px 24px; text-align: center; color: var(--text-dim);
+      height: calc(100vh - 45px);
+    }
+    #empty .icon { font-size: 36px; opacity: 0.3; }
+    #empty p { font-size: 12px; line-height: 1.6; }
+
+    /* ── Selected element header ── */
+    #el-header {
+      display: none; padding: 8px 10px; border-bottom: 1px solid var(--border);
+      background: rgba(245,158,11,0.06);
+    }
+    #el-selector { font-family: var(--mono); font-size: 11px; color: var(--primary); font-weight: 600; }
+    #el-meta { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+    /* ── Inspector sections ── */
+    #inspector { display: none; overflow-y: auto; padding: 8px; }
+
+    .section {
+      border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; margin-bottom: 6px;
+    }
+    .section-header {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 10px; background: rgba(255,255,255,0.03);
+      cursor: pointer; user-select: none; font-size: 10px;
+      font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+      color: var(--text-dim); border: none; width: 100%; text-align: left;
+    }
+    .section-header:hover { background: rgba(255,255,255,0.06); }
+    .section-header .chevron { font-size: 8px; margin-left: auto; }
+    .section-body { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+    .section-body.collapsed { display: none; }
+
+    /* ── Inspector rows ── */
+    .row { display: flex; align-items: center; gap: 8px; }
+    .row label {
+      width: 68px; flex-shrink: 0; font-size: 10px; color: var(--text-dim);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .row .ctrl { flex: 1; min-width: 0; }
+
+    input[type=range] {
+      width: 100%; height: 4px; accent-color: var(--primary); cursor: pointer;
+    }
+    input[type=text], select {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 3px 6px; font-size: 11px;
+      font-family: var(--mono); color: var(--text);
+      outline: none; transition: border-color 120ms;
+    }
+    input[type=text]:focus, select:focus { border-color: var(--primary); }
+
+    .color-row { display: flex; gap: 6px; align-items: center; }
+    input[type=color] {
+      width: 28px; height: 28px; padding: 2px; border-radius: var(--radius);
+      border: 1px solid var(--border); background: var(--bg); cursor: pointer; flex-shrink: 0;
+    }
+
+    /* ── Action buttons ── */
+    #actions {
+      display: none; gap: 6px; padding: 8px;
+      border-top: 1px solid var(--border); position: sticky; bottom: 0;
+      background: var(--bg);
+    }
+    .btn {
+      flex: 1; padding: 6px 10px; border-radius: var(--radius); font-size: 11px;
+      font-weight: 600; cursor: pointer; border: 1px solid var(--border);
+      background: var(--muted); color: var(--text); transition: all 120ms;
+    }
+    .btn:hover { border-color: var(--primary); color: var(--primary); }
+    .btn.primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+    .btn.primary:hover { opacity: 0.9; }
+
+    /* ── Server banner ── */
+    #server-banner {
+      display: none; margin: 8px; padding: 8px 10px;
+      background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
+      border-radius: var(--radius); font-size: 10px; color: var(--text-dim); line-height: 1.6;
+    }
+    #server-banner.show { display: block; }
+    #server-banner strong { color: var(--primary); }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 52px; left: 50%; transform: translateX(-50%);
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      padding: 6px 14px; border-radius: var(--radius); font-size: 11px;
+      pointer-events: none; opacity: 0; transition: opacity 200ms; white-space: nowrap;
+      z-index: 9999;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <span id="logo">⟡ OpenTweaker</span>
+    <div class="spacer"></div>
+    <button id="pick-btn">⊕ Pick</button>
+  </div>
+
+  <!-- Empty state -->
+  <div id="empty">
+    <div class="icon">⊕</div>
+    <p>Click <strong>Pick</strong> then click any element<br>on the page to inspect it.</p>
+  </div>
+
+  <!-- Selected element header -->
+  <div id="el-header">
+    <div id="el-selector"></div>
+    <div id="el-meta"></div>
+  </div>
+
+  <!-- Server banner (shown when local server is not running) -->
+  <div id="server-banner">
+    <strong>Apply to Source unavailable</strong><br>
+    Run <code>node server.cjs</code> in your project to enable writing changes back to files.
+  </div>
+
+  <!-- Inspector sections -->
+  <div id="inspector">
+
+    <div class="section">
+      <button class="section-header" data-section="color">
+        Color <span class="chevron">▾</span>
+      </button>
+      <div class="section-body" id="sec-color">
+        <div class="row">
+          <label>Background</label>
+          <div class="ctrl color-row">
+            <input type="color" id="bg-color" />
+            <input type="text" id="bg-text" />
+          </div>
+        </div>
+        <div class="row">
+          <label>Text</label>
+          <div class="ctrl color-row">
+            <input type="color" id="text-color" />
+            <input type="text" id="text-text" />
+          </div>
+        </div>
+        <div class="row">
+          <label>Border</label>
+          <div class="ctrl color-row">
+            <input type="color" id="border-color" />
+            <input type="text" id="border-text" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <button class="section-header" data-section="typography">
+        Typography <span class="chevron">▾</span>
+      </button>
+      <div class="section-body" id="sec-typography">
+        <div class="row">
+          <label id="lbl-fontsize">Size 14px</label>
+          <div class="ctrl"><input type="range" id="font-size" min="6" max="96" step="1" /></div>
+        </div>
+        <div class="row">
+          <label id="lbl-fontweight">Weight 400</label>
+          <div class="ctrl"><input type="range" id="font-weight" min="100" max="900" step="100" /></div>
+        </div>
+        <div class="row">
+          <label id="lbl-lineheight">Line H 1.5</label>
+          <div class="ctrl"><input type="range" id="line-height" min="0.8" max="4" step="0.05" /></div>
+        </div>
+        <div class="row">
+          <label>Align</label>
+          <div class="ctrl">
+            <select id="text-align">
+              <option value="left">left</option>
+              <option value="center">center</option>
+              <option value="right">right</option>
+              <option value="justify">justify</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <button class="section-header" data-section="spacing">
+        Spacing <span class="chevron">▾</span>
+      </button>
+      <div class="section-body" id="sec-spacing">
+        <div class="row"><label id="lbl-pt">Pad Top 0px</label><div class="ctrl"><input type="range" id="padding-top" min="0" max="120" step="1" /></div></div>
+        <div class="row"><label id="lbl-pr">Pad Right 0px</label><div class="ctrl"><input type="range" id="padding-right" min="0" max="120" step="1" /></div></div>
+        <div class="row"><label id="lbl-pb">Pad Bot 0px</label><div class="ctrl"><input type="range" id="padding-bottom" min="0" max="120" step="1" /></div></div>
+        <div class="row"><label id="lbl-pl">Pad Left 0px</label><div class="ctrl"><input type="range" id="padding-left" min="0" max="120" step="1" /></div></div>
+        <div class="row"><label id="lbl-mt">Margin T 0px</label><div class="ctrl"><input type="range" id="margin-top" min="-60" max="120" step="1" /></div></div>
+        <div class="row"><label id="lbl-mb">Margin B 0px</label><div class="ctrl"><input type="range" id="margin-bottom" min="-60" max="120" step="1" /></div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <button class="section-header" data-section="layout">
+        Layout <span class="chevron">▾</span>
+      </button>
+      <div class="section-body" id="sec-layout">
+        <div class="row"><label id="lbl-br">Radius 0px</label><div class="ctrl"><input type="range" id="border-radius" min="0" max="60" step="1" /></div></div>
+        <div class="row"><label id="lbl-op">Opacity 1</label><div class="ctrl"><input type="range" id="opacity" min="0" max="1" step="0.01" /></div></div>
+        <div class="row">
+          <label>Display</label>
+          <div class="ctrl">
+            <select id="display">
+              <option value="block">block</option>
+              <option value="flex">flex</option>
+              <option value="inline-flex">inline-flex</option>
+              <option value="grid">grid</option>
+              <option value="inline">inline</option>
+              <option value="inline-block">inline-block</option>
+              <option value="none">none</option>
+            </select>
+          </div>
+        </div>
+        <div class="row"><label>Width</label><div class="ctrl"><input type="text" id="width" /></div></div>
+        <div class="row"><label>Height</label><div class="ctrl"><input type="text" id="height" /></div></div>
+      </div>
+    </div>
+
+  </div><!-- /inspector -->
+
+  <!-- Action buttons -->
+  <div id="actions">
+    <button class="btn" id="btn-reset">Reset</button>
+    <button class="btn primary" id="btn-apply" disabled title="Start local server to enable">Apply to Source</button>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="panel.js"></script>
+</body>
+</html>

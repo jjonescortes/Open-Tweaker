@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>⟡ Visual Tweaker Editor</title>
+<style>
+/* ── Reset & tokens ─────────────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:    oklch(0.145 0 0);
+  --card:  oklch(0.205 0 0);
+  --raised:oklch(0.269 0 0);
+  --active:oklch(0.34  0 0);
+  --bd:    oklch(0.275 0 0);
+  --bd2:   oklch(0.325 0 0);
+  --fg:    oklch(0.985 0 0);
+  --muted: oklch(0.708 0 0);
+  --dim:   oklch(0.556 0 0);
+  --acc:   oklch(0.8868 0.1815 95.265);
+  --acc-hi:oklch(0.922 0.12 95);
+  --acc-fg:oklch(0.145 0 0);
+  --red:   oklch(0.704 0.191 22.216);
+  --green: oklch(0.72 0.18 145);
+  --r:     0.625rem;
+  --r-sm:  calc(0.625rem - 4px);
+}
+html,body{ height:100%; overflow:hidden; }
+body{
+  background:var(--bg); color:var(--fg);
+  font:13px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif;
+  display:flex; flex-direction:column;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+#topbar{
+  height:46px; background:var(--card); border-bottom:1px solid var(--bd);
+  display:flex; align-items:center; gap:8px; padding:0 12px; flex-shrink:0;
+  z-index:10;
+}
+.tb-logo{ font-size:15px; font-weight:800; color:var(--acc); white-space:nowrap; margin-right:4px; }
+.tb-sep{ width:1px; height:22px; background:var(--bd); flex-shrink:0; }
+.tb-icon-btn{
+  width:32px; height:32px; border-radius:var(--r-sm);
+  background:none; border:1px solid transparent; color:var(--dim);
+  cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;
+  transition:all .15s; flex-shrink:0;
+}
+.tb-icon-btn:hover{ background:var(--raised); color:var(--fg); border-color:var(--bd); }
+.tb-icon-btn.on{ background:var(--acc)/.15; color:var(--acc); border-color:var(--acc)/.4; }
+.tb-icon-btn.pick{ background:oklch(0.8868 0.1815 95.265/.15); border-color:var(--acc); color:var(--acc); }
+.tb-icon-btn.pick.active{
+  background:var(--acc); color:var(--acc-fg);
+  animation:tb-pick-pulse 1.2s ease-in-out infinite;
+}
+@keyframes tb-pick-pulse{
+  0%,100%{box-shadow:0 0 0 0 oklch(0.8868 0.1815 95.265/.5);}
+  50%{box-shadow:0 0 0 6px oklch(0.8868 0.1815 95.265/.0);}
+}
+#url-bar{
+  flex:1; max-width:360px; background:var(--bg); border:1px solid var(--bd2);
+  border-radius:var(--r-sm); color:var(--fg); padding:6px 10px;
+  font:12px/1 ui-monospace,monospace; transition:border-color .15s;
+}
+#url-bar:focus{ outline:none; border-color:var(--acc); }
+#load-btn{
+  padding:6px 14px; background:var(--acc); color:var(--acc-fg);
+  border:none; border-radius:var(--r-sm); cursor:pointer;
+  font:600 12px/1 inherit; transition:background .15s;
+}
+#load-btn:hover{ background:var(--acc-hi); }
+#status-dot{ width:8px; height:8px; border-radius:50%; background:var(--dim); flex-shrink:0; }
+#status-dot.connected{ background:var(--green); box-shadow:0 0 5px oklch(0.72 0.18 145/.6); }
+#status-dot.connecting{ background:var(--acc); animation:tb-pick-pulse 1s infinite; }
+#status-txt{ font-size:11px; color:var(--dim); white-space:nowrap; }
+.tb-spacer{ flex:1; }
+
+/* ── Workspace ───────────────────────────────────────────────────────────── */
+#workspace{
+  flex:1; display:flex; overflow:hidden; min-height:0;
+}
+
+/* ── Sidebar shared ──────────────────────────────────────────────────────── */
+.sidebar{
+  background:var(--card); border-color:var(--bd);
+  display:flex; flex-direction:column; flex-shrink:0;
+  overflow:hidden; transition:width .22s cubic-bezier(.4,0,.2,1);
+}
+.sidebar.collapsed{ width:0 !important; }
+.sidebar-inner{ width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden; }
+
+/* left sidebar */
+#left-sidebar{ width:260px; border-right:1px solid var(--bd); }
+
+/* right sidebar */
+#right-sidebar{ width:340px; border-left:1px solid var(--bd); }
+
+/* sidebar tabs */
+.s-tabs{
+  display:flex; background:oklch(0.165 0 0); border-bottom:1px solid var(--bd);
+  flex-shrink:0;
+}
+.s-tab{
+  flex:1; padding:8px 4px; background:none; border:none;
+  border-bottom:2px solid transparent; color:var(--dim);
+  cursor:pointer; font:600 10px/1 inherit; letter-spacing:.04em;
+  text-transform:uppercase; transition:all .15s;
+}
+.s-tab:hover{ color:var(--muted); }
+.s-tab.on{ color:var(--acc); border-bottom-color:var(--acc); }
+
+/* sidebar body */
+.s-body{
+  flex:1; overflow-y:auto; padding:10px;
+  scrollbar-width:thin; scrollbar-color:var(--bd) transparent;
+}
+.s-body::-webkit-scrollbar{ width:4px; }
+.s-body::-webkit-scrollbar-thumb{ background:var(--bd); border-radius:2px; }
+
+/* ── Left panel — file tree & DOM ──────────────────────────────────────────── */
+.tree-item{
+  display:flex; align-items:center; gap:5px; padding:4px 6px;
+  border-radius:var(--r-sm); cursor:pointer; font-size:11px;
+  color:var(--muted); transition:background .1s;
+}
+.tree-item:hover{ background:var(--raised); color:var(--fg); }
+.tree-item.selected{ background:oklch(0.8868 0.1815 95.265/.12); color:var(--acc); }
+.tree-item .ti-indent{ display:inline-block; width:10px; flex-shrink:0; }
+.tree-item .ti-icon{ font-size:10px; flex-shrink:0; color:var(--dim); }
+.tree-item .ti-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.tree-item .ti-tag{
+  font:9px/1 ui-monospace,monospace; color:var(--dim);
+  background:var(--raised); border:1px solid var(--bd);
+  padding:1px 4px; border-radius:3px; flex-shrink:0;
+}
+.comp-item{
+  padding:6px 8px; border-radius:var(--r-sm); cursor:pointer;
+  margin-bottom:2px; border-left:2px solid transparent; transition:background .1s;
+}
+.comp-item:hover{ background:var(--raised); }
+.comp-item.selected{ background:var(--raised); border-left-color:var(--acc); }
+.comp-item-name{ font-weight:600; font-size:12px; color:var(--fg); }
+.comp-item-file{ font-size:10px; color:var(--dim); font-family:ui-monospace,monospace; margin-top:1px; }
+
+/* ── Canvas ─────────────────────────────────────────────────────────────── */
+#canvas{
+  flex:1; display:flex; flex-direction:column;
+  background:oklch(0.11 0 0); overflow:hidden; position:relative;
+}
+#canvas-toolbar{
+  display:flex; align-items:center; gap:6px; padding:6px 10px;
+  background:var(--bg); border-bottom:1px solid var(--bd); flex-shrink:0;
+}
+#canvas-toolbar .ct-label{ font-size:10px; color:var(--dim); }
+#zoom-display{ font-size:11px; color:var(--muted); min-width:38px; text-align:center; font-family:ui-monospace,monospace; }
+#canvas-wrap{
+  flex:1; display:flex; align-items:center; justify-content:center;
+  overflow:auto; padding:20px; position:relative;
+}
+#frame-container{
+  position:relative; background:#fff; flex-shrink:0;
+  box-shadow:0 8px 40px oklch(0 0 0/.7), 0 0 0 1px oklch(1 0 0/.08);
+  border-radius:2px; overflow:hidden;
+}
+#app-frame{
+  display:block; border:none;
+  width:100%; height:100%;
+}
+/* overlay is purely visual — never blocks mouse events */
+#pick-overlay{
+  position:absolute; inset:0; z-index:10;
+  pointer-events:none; display:none;
+  border:2px solid oklch(0.8868 0.1815 95.265/.6);
+  animation:pick-border-pulse 1.2s ease-in-out infinite;
+}
+#pick-overlay.active{ display:block; }
+@keyframes pick-border-pulse{
+  0%,100%{ border-color:oklch(0.8868 0.1815 95.265/.6); }
+  50%{     border-color:oklch(0.8868 0.1815 95.265/.2); }
+}
+#frame-container.picking{ cursor:crosshair; }
+#frame-container.picking #app-frame{ pointer-events:all; cursor:crosshair; }
+#frame-placeholder{
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:12px;
+  color:var(--dim); font-size:13px; background:oklch(0.11 0 0);
+}
+#frame-placeholder .ph-icon{ font-size:40px; opacity:.3; }
+#frame-placeholder p{ opacity:.5; }
+
+/* ── Right panel — Inspect / Session ─────────────────────────────────────── */
+.r-section{ margin-bottom:16px; }
+.r-sec-ttl{
+  font-size:10px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.1em; color:var(--dim); padding-bottom:6px;
+  margin-bottom:8px; border-bottom:1px solid var(--bd);
+}
+.r-field{ margin-bottom:10px; }
+.r-field-hd{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+.r-lbl{ font-size:11px; font-weight:500; color:var(--muted); }
+.r-val{ font-size:10px; color:var(--acc); font-family:ui-monospace,monospace; }
+.r-ctrl{ display:flex; gap:6px; align-items:center; }
+.r-in{
+  flex:1; background:var(--bg); border:1px solid var(--bd2);
+  border-radius:var(--r-sm); color:var(--fg); padding:6px 9px;
+  font:12px/1 inherit; transition:border-color .15s;
+}
+.r-in:focus{ outline:none; border-color:var(--acc); }
+input[type=color].r-clr{
+  width:34px; height:30px; padding:2px; border-radius:var(--r-sm);
+  border:1px solid var(--bd2); background:var(--bg); cursor:pointer; flex-shrink:0;
+}
+.r-range{
+  flex:1; -webkit-appearance:none; appearance:none;
+  height:4px; border-radius:2px; background:var(--raised); cursor:pointer;
+}
+.r-range::-webkit-slider-thumb{
+  -webkit-appearance:none; width:14px; height:14px;
+  background:var(--acc); border-radius:50%;
+  box-shadow:0 0 0 3px oklch(0.8868 0.1815 95.265/.2);
+}
+.r-sel{
+  width:100%; background:var(--bg); border:1px solid var(--bd2);
+  border-radius:var(--r-sm); color:var(--fg); padding:6px 9px;
+  font:12px/1 inherit; cursor:pointer;
+}
+.r-sel:focus{ outline:none; border-color:var(--acc); }
+.r-align{ display:flex; gap:3px; flex:1; }
+.r-ab{
+  flex:1; padding:5px 2px; background:var(--bg); border:1px solid var(--bd);
+  border-radius:var(--r-sm); color:var(--dim); cursor:pointer;
+  font:600 10px/1 inherit; transition:all .12s;
+}
+.r-ab.on{ background:oklch(0.8868 0.1815 95.265/.15); color:var(--acc); border-color:oklch(0.8868 0.1815 95.265/.4); }
+
+/* selector bar */
+#sel-bar{
+  background:var(--bg); border:1px solid oklch(0.8868 0.1815 95.265/.4);
+  border-radius:var(--r-sm); padding:7px 10px;
+  font:12px/1 ui-monospace,monospace; color:var(--acc);
+  margin-bottom:12px; min-height:30px; word-break:break-all;
+}
+#sel-bar.empty{ color:var(--dim); border-color:var(--bd); font-style:italic; font-family:inherit; }
+#sel-bar input{
+  background:none; border:none; outline:none; color:inherit;
+  font:inherit; width:100%; cursor:text;
+}
+
+/* action row */
+.act-row{ display:flex; gap:6px; padding-top:10px; margin-top:10px; border-top:1px solid var(--bd); }
+.btn{
+  background:var(--acc); color:var(--acc-fg); border:none;
+  border-radius:var(--r-sm); padding:7px 14px;
+  cursor:pointer; font:600 12px/1 inherit; transition:background .15s;
+}
+.btn:hover{ background:var(--acc-hi); }
+.btn.sec{
+  background:var(--raised); color:var(--muted); border:1px solid var(--bd);
+}
+.btn.sec:hover{ background:var(--active); color:var(--fg); }
+.btn.sm{ padding:4px 10px; font-size:11px; }
+
+/* element not selected hint */
+.r-hint{ color:var(--dim); font-size:11px; text-align:center; padding:20px 0; line-height:1.7; }
+
+/* pills */
+.pill{
+  display:inline-flex; font-size:9px; padding:2px 7px; border-radius:999px;
+  background:var(--raised); color:var(--muted); border:1px solid var(--bd);
+  cursor:pointer; transition:all .12s; font-family:ui-monospace,monospace;
+}
+.pill:hover{ background:oklch(0.8868 0.1815 95.265/.15); color:var(--acc); border-color:oklch(0.8868 0.1815 95.265/.4); }
+.pill.on{ background:oklch(0.8868 0.1815 95.265/.18); color:var(--acc); border-color:oklch(0.8868 0.1815 95.265/.5); }
+
+/* session items */
+.sess-item{ background:var(--bg); border:1px solid var(--bd); border-radius:var(--r-sm); padding:8px; margin-bottom:5px; }
+.sess-sel{ font:600 11px/1 ui-monospace,monospace; color:var(--acc); margin-bottom:4px; }
+.sess-prop{ display:flex; gap:4px; font-size:10px; font-family:ui-monospace,monospace; margin-top:2px; }
+.sess-key{ color:var(--muted); }
+.sess-val{ color:var(--green); }
+.sess-del{ background:none;border:none;cursor:pointer;color:var(--dim);font-size:13px;margin-left:auto;padding:0 2px;border-radius:2px; }
+.sess-del:hover{ color:var(--red); }
+.prompt-out{
+  width:100%; background:var(--bg); border:1px solid var(--bd);
+  border-radius:var(--r-sm); color:var(--muted); padding:9px;
+  font:10px/1.6 ui-monospace,monospace; resize:vertical; min-height:140px;
+  display:block; white-space:pre-wrap;
+}
+
+/* ── Bottom panel — Storybook ─────────────────────────────────────────────── */
+#bottom-panel{
+  background:var(--card); border-top:1px solid var(--bd);
+  transition:height .22s cubic-bezier(.4,0,.2,1);
+  flex-shrink:0; overflow:hidden;
+  display:flex; flex-direction:column;
+}
+#bottom-panel.collapsed{ height:32px !important; }
+#bottom-toggle-bar{
+  display:flex; align-items:center; gap:8px; padding:0 12px;
+  height:32px; cursor:pointer; flex-shrink:0; border-bottom:1px solid var(--bd);
+  font-size:11px; font-weight:600; color:var(--dim); user-select:none;
+  transition:color .15s;
+}
+#bottom-toggle-bar:hover{ color:var(--fg); }
+#bottom-toggle-bar .bt-name{ flex:1; }
+#bottom-toggle-bar .bt-arrow{ font-size:10px; transition:transform .2s; }
+#bottom-panel.collapsed #bottom-toggle-bar .bt-arrow{ transform:rotate(180deg); }
+#bottom-body{
+  flex:1; overflow-x:auto; overflow-y:hidden;
+  display:flex; gap:10px; padding:10px 12px; align-items:flex-start;
+}
+.story-card{
+  background:var(--bg); border:1px solid var(--bd); border-radius:var(--r);
+  flex-shrink:0; overflow:hidden; cursor:pointer; transition:border-color .15s;
+  width:180px;
+}
+.story-card:hover{ border-color:var(--acc); }
+.story-card.selected{ border-color:var(--acc); box-shadow:0 0 0 1px var(--acc); }
+.story-preview{
+  height:90px; background:oklch(0.11 0 0);
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; color:var(--dim); overflow:hidden; padding:10px;
+}
+.story-meta{ padding:7px 9px; border-top:1px solid var(--bd); }
+.story-name{ font-size:11px; font-weight:600; color:var(--fg); }
+.story-classes{
+  font:9px/1.5 ui-monospace,monospace; color:var(--dim);
+  margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.story-hint{ color:var(--dim); font-size:11px; padding:10px 0; }
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+#toast{
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+  background:var(--card); border:1px solid oklch(0.8868 0.1815 95.265/.4);
+  color:var(--fg); padding:8px 18px; border-radius:var(--r-sm);
+  font:12px/1.4 inherit; z-index:99999; opacity:0; pointer-events:none;
+  transition:opacity .2s; white-space:nowrap; box-shadow:0 4px 20px oklch(0 0 0/.4);
+}
+
+/* ── Empty / loading ─────────────────────────────────────────────────────── */
+.empty{ color:var(--dim); font-size:11px; padding:16px 0; text-align:center; }
+code{ font-family:ui-monospace,monospace; font-size:11px; background:var(--raised); color:var(--acc); padding:1px 5px; border-radius:3px; }
+
+/* ── Tweakpane theme overrides ───────────────────────────────────────────── */
+.tp-wrap{ margin-bottom:4px; }
+.tp-wrap .tp-rotv{
+  /* Blend into our dark card, no extra chrome */
+  --tp-base-background-color: transparent;
+  --tp-base-foreground-color: oklch(0.985 0 0);
+  --tp-groove-foreground-color: oklch(0.275 0 0);
+  --tp-input-background-color: oklch(0.145 0 0);
+  --tp-input-background-color-focus: oklch(0.18 0 0);
+  --tp-input-background-color-active: oklch(0.22 0 0);
+  --tp-input-foreground-color: oklch(0.985 0 0);
+  --tp-label-foreground-color: oklch(0.556 0 0);
+  --tp-monitor-background-color: oklch(0.145 0 0);
+  --tp-monitor-foreground-color: oklch(0.708 0 0);
+  border: none !important;
+  width: 100%;
+}
+/* Folder title accent */
+.tp-wrap .tp-fldv_t{ color: oklch(0.708 0 0) !important; font-size:10px !important; text-transform:uppercase; letter-spacing:.06em; }
+.tp-wrap .tp-fldv_b{ border-left-color: oklch(0.275 0 0) !important; }
+/* Scrubber (drag) knob matches accent colour */
+.tp-wrap .tp-sglv_i::-webkit-slider-thumb{ background: oklch(0.8868 0.1815 95.265) !important; }
+</style>
+</head>
+<body>
+
+<!-- ── Top bar ──────────────────────────────────────────────────────────── -->
+<div id="topbar">
+  <span class="tb-logo">⟡ VT</span>
+  <div class="tb-sep"></div>
+  <button class="tb-icon-btn on" id="btn-left"  title="Toggle file panel">⎘</button>
+  <button class="tb-icon-btn on" id="btn-right" title="Toggle inspector">⎙</button>
+  <div class="tb-sep"></div>
+  <input id="url-bar" type="url" value="http://localhost:5173" placeholder="http://localhost:5173">
+  <button id="load-btn">Load →</button>
+  <div class="tb-sep"></div>
+  <button class="tb-icon-btn pick" id="btn-pick" title="Pick element (P)">⊕</button>
+  <div class="tb-sep"></div>
+  <button class="tb-icon-btn" id="btn-zoom-out" title="Zoom out">−</button>
+  <span id="zoom-display">100%</span>
+  <button class="tb-icon-btn" id="btn-zoom-in"  title="Zoom in">+</button>
+  <button class="tb-icon-btn" id="btn-zoom-fit" title="Fit" style="font-size:11px;font-weight:700;">FIT</button>
+  <div class="tb-spacer"></div>
+  <div id="status-dot"></div>
+  <span id="status-txt">Not loaded</span>
+</div>
+
+<!-- ── Workspace ────────────────────────────────────────────────────────── -->
+<div id="workspace">
+
+  <!-- LEFT SIDEBAR -->
+  <div class="sidebar" id="left-sidebar">
+    <div class="sidebar-inner">
+      <div class="s-tabs">
+        <button class="s-tab on" data-ltab="components">Components</button>
+        <button class="s-tab"    data-ltab="dom">DOM</button>
+      </div>
+      <div class="s-body" id="left-body"></div>
+    </div>
+  </div>
+
+  <!-- CANVAS -->
+  <div id="canvas">
+    <div id="canvas-toolbar">
+      <span class="ct-label">Canvas</span>
+    </div>
+    <div id="canvas-wrap">
+      <div id="frame-container" style="width:1280px;height:800px;">
+        <div id="pick-overlay"></div>
+        <iframe id="app-frame" title="App Preview"></iframe>
+        <div id="frame-placeholder">
+          <div class="ph-icon">⟡</div>
+          <p>Enter a URL above and click <strong>Load →</strong></p>
+          <p style="font-size:11px;">The app will load in this canvas with element picking enabled.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT SIDEBAR -->
+  <div class="sidebar" id="right-sidebar">
+    <div class="sidebar-inner">
+      <div class="s-tabs">
+        <button class="s-tab on" data-rtab="inspect">Inspect</button>
+        <button class="s-tab"    data-rtab="design">Design</button>
+        <button class="s-tab"    data-rtab="session">Session</button>
+      </div>
+      <div class="s-body" id="right-body"></div>
+    </div>
+  </div>
+
+</div><!-- /workspace -->
+
+<!-- ── Bottom panel ────────────────────────────────────────────────────── -->
+<div id="bottom-panel" style="height:200px;">
+  <div id="bottom-toggle-bar">
+    <span class="bt-name">🎨 Component Variants</span>
+    <span id="bottom-comp-name" style="font-size:10px;color:var(--dim);"></span>
+    <span class="bt-arrow">▲</span>
+  </div>
+  <div id="bottom-body">
+    <div class="story-hint">Select a component on the canvas to preview its variants here.</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   VISUAL TWEAKER EDITOR — main.js
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const SERVER = 'http://localhost:4242';
+const frame  = document.getElementById('app-frame');
+const overlay = document.getElementById('pick-overlay');
+const placeholder = document.getElementById('frame-placeholder');
+
+// Tweakpane v4 ships as pure ESM — must use dynamic import(), not <script src>.
+// The import starts immediately; by the time the user picks an element it's done.
+let Pane = null;
+import('https://cdn.jsdelivr.net/npm/tweakpane@4.0.5/+esm')
+  .then(m => { Pane = m.Pane; })
+  .catch(e => console.warn('[VT] Tweakpane unavailable:', e));
+
+// ── State ──────────────────────────────────────────────────────────────────
+let _pane = null; // active Tweakpane instance in the right inspector
+const ST = {
+  connected:      false,
+  picking:        false,
+  selectedEl:     null,   // element info from bridge
+  pendingProps:   {},     // { css-prop: value }
+  ltab:           'components',
+  rtab:           'inspect',
+  zoom:           1,
+  components:     null,
+  designCtx:      null,
+  sessionChanges: [],
+  sessionActive:  false,
+  bottomOpen:     true,
+  leftOpen:       true,
+  rightOpen:      true,
+};
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+let toastTm;
+const toastEl = document.getElementById('toast');
+function toast(msg, dur = 2200) {
+  toastEl.textContent = msg;
+  toastEl.style.opacity = '1';
+  clearTimeout(toastTm);
+  toastTm = setTimeout(() => { toastEl.style.opacity = '0'; }, dur);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'className') n.className = v;
+    else if (k === 'style' && typeof v === 'string') n.style.cssText = v;
+    else n[k] = v;
+  }
+  for (const c of kids) {
+    if (typeof c === 'string') n.appendChild(document.createTextNode(c));
+    else if (c) n.appendChild(c);
+  }
+  return n;
+}
+
+function toHex(color) {
+  if (!color || typeof color !== 'string') return null;
+  const s = color.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(s)) return s;
+  if (/^#[0-9a-fA-F]{3}$/.test(s)) return '#' + [...s.slice(1)].map(c => c+c).join('');
+  const rgb = s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (rgb) return '#' + [rgb[1],rgb[2],rgb[3]].map(n=>parseInt(n).toString(16).padStart(2,'0')).join('');
+  const tmp = document.createElement('canvas'); tmp.width = tmp.height = 1;
+  const ctx = tmp.getContext('2d'); ctx.fillStyle = s; ctx.fillRect(0,0,1,1);
+  const [r,g,b,a] = ctx.getImageData(0,0,1,1).data;
+  if (a === 0) return null;
+  return '#' + [r,g,b].map(n=>n.toString(16).padStart(2,'0')).join('');
+}
+
+// ── Frame access helpers ───────────────────────────────────────────────────
+// The proxy serves from localhost:4242 (same origin as this editor page),
+// so we can directly read/write the iframe DOM — no postMessage needed.
+
+function frameDoc() { try { return frame.contentDocument; } catch { return null; } }
+function frameWin() { try { return frame.contentWindow;  } catch { return null; } }
+
+function setStatus(state, txt) {
+  document.getElementById('status-dot').className  = state;
+  document.getElementById('status-txt').textContent = txt;
+}
+
+// ── Frame load ─────────────────────────────────────────────────────────────
+async function loadApp() {
+  const url = document.getElementById('url-bar').value.trim();
+  if (!url) return;
+  ST.connected  = false;
+  ST.selectedEl = null;
+  cleanPick();
+  setStatus('connecting', 'Loading…');
+  placeholder.style.display = '';
+
+  // Tell the server which app to proxy, then load the iframe at "/" so that
+  // React Router (BrowserRouter) sees pathname "/" — not "/proxy" — and
+  // renders the correct route instead of the catch-all 404.
+  try {
+    await fetch(`${SERVER}/set-proxy`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+  } catch { /* server might not be up yet — fall back to legacy proxy */ }
+
+  // Add cache-bust so the browser actually reloads even if the path is the same
+  frame.src = `${SERVER}/?_=${Date.now()}`;
+}
+
+frame.addEventListener('load', () => {
+  const doc = frameDoc();
+  if (!doc || !doc.body) {
+    // Cross-origin — fall back to bridge ping
+    setStatus('connecting', 'Cross-origin — pinging bridge…');
+    try { frame.contentWindow?.postMessage({ type:'vtb:ping' }, '*'); } catch {}
+    setTimeout(() => { if (!ST.connected) setStatus('', 'Load failed — try reloading'); }, 1000);
+    return;
+  }
+
+  const firstLoad = !ST.connected;
+  ST.connected = true;
+  placeholder.style.display = 'none';
+  setStatus('connected', 'Connected — click ⊕ or press P to pick');
+
+  // If pick mode was active when the frame reloaded (Vite HMR, SPA navigation, etc.)
+  // re-attach the direct-DOM listeners to the new document after a brief React hydration delay.
+  if (ST.picking) {
+    setTimeout(() => {
+      _pickRing = null; _pickLabel = null; _pickStyle = null; // reset stale refs
+      ensurePickUI();
+      attachPickListeners();
+    }, 200);
+  }
+
+  if (firstLoad) {
+    loadComponents();
+    loadDesignCtx();
+  }
+});
+
+document.getElementById('load-btn').addEventListener('click', loadApp);
+document.getElementById('url-bar').addEventListener('keydown', e => { if (e.key === 'Enter') loadApp(); });
+
+// ── Bridge message fallback (cross-origin iframe) ──────────────────────────
+// When the proxied app navigates cross-origin (e.g. React Router redirects
+// to localhost:8081 directly), direct DOM access fails. The bridge script
+// was injected into the original proxy HTML and can still send us postMessages.
+window.addEventListener('message', ({ data: m }) => {
+  if (!m?.type?.startsWith('vtb:')) return;
+  switch (m.type) {
+
+    case 'vtb:ready':
+      // Bridge is live — promote to connected if we aren't already
+      if (!ST.connected) {
+        ST.connected = true;
+        placeholder.style.display = 'none';
+        setStatus('connected', 'Connected via bridge — click ⊕ or press P to pick');
+        loadComponents();
+        loadDesignCtx();
+      }
+      break;
+
+    case 'vtb:selected':
+      // Bridge sends element info when user clicks in pick mode
+      if (!ST.picking) return;
+      ST.selectedEl   = m.el;
+      ST.pendingProps = {};
+      setPicking(false);
+      document.querySelectorAll('[data-rtab]').forEach(b =>
+        b.classList.toggle('on', b.dataset.rtab === 'inspect'));
+      ST.rtab = 'inspect';
+      renderRightInspect();
+      renderBottomForEl(ST.selectedEl);
+      break;
+
+    case 'vtb:pick-cancel':
+      setPicking(false);
+      break;
+
+    case 'vtb:pong':
+      // Heartbeat reply — bridge is alive in a cross-origin frame
+      if (!ST.connected) {
+        ST.connected = true;
+        placeholder.style.display = 'none';
+        setStatus('connected', 'Connected via bridge');
+      }
+      break;
+  }
+});
+
+// ── Direct-DOM pick mode ───────────────────────────────────────────────────
+// Because the iframe is same-origin we attach listeners directly to its
+// document — no bridge, no postMessage, no race conditions.
+
+let _hoverEl = null;
+let _pickRing = null, _pickLabel = null, _pickStyle = null;
+
+function ensurePickUI() {
+  const doc = frameDoc();
+  if (!doc) return;
+  if (!_pickStyle) {
+    _pickStyle = doc.createElement('style');
+    _pickStyle.id = 'vte-pick-style';
+    _pickStyle.textContent = '* { cursor: crosshair !important; }';
+    doc.head.appendChild(_pickStyle);
+  }
+  if (!_pickRing) {
+    _pickRing = doc.createElement('div');
+    _pickRing.id = 'vte-ring';
+    _pickRing.style.cssText = [
+      'position:fixed','z-index:2147483646','pointer-events:none',
+      'border:2px solid oklch(0.8868 0.1815 95.265)',
+      'box-shadow:0 0 0 4px oklch(0.8868 0.1815 95.265/.15)',
+      'border-radius:4px','display:none','transition:all .06s ease',
+    ].join(';');
+    doc.body.appendChild(_pickRing);
+  }
+  if (!_pickLabel) {
+    _pickLabel = doc.createElement('div');
+    _pickLabel.id = 'vte-label';
+    _pickLabel.style.cssText = [
+      'position:fixed','z-index:2147483647','pointer-events:none',
+      'background:oklch(0.8868 0.1815 95.265)','color:oklch(0.145 0 0)',
+      'font:700 10px/1 ui-sans-serif,sans-serif',
+      'padding:3px 8px','border-radius:999px','white-space:nowrap','display:none',
+    ].join(';');
+    doc.body.appendChild(_pickLabel);
+  }
+}
+
+function posRing(target) {
+  if (!_pickRing || !target) return;
+  const r = target.getBoundingClientRect(), p = 3;
+  _pickRing.style.cssText += `;left:${r.left-p}px;top:${r.top-p}px;width:${r.width+p*2}px;height:${r.height+p*2}px;display:block`;
+  _pickLabel.style.cssText += `;left:${r.left-p}px;top:${Math.max(0,r.top-p-22)}px;display:block`;
+  const cls = [...target.classList].filter(c=>/^[a-z]/.test(c)&&!/^vte/.test(c)).slice(0,2).join('.');
+  _pickLabel.textContent = `${target.tagName.toLowerCase()}${cls?'.'+cls:''} · ${Math.round(r.width)}×${Math.round(r.height)}`;
+}
+
+function onPickHover(e) {
+  if (e.target.id === 'vte-ring' || e.target.id === 'vte-label') return;
+  _hoverEl = e.target;
+  posRing(e.target);
+}
+
+function onPickClick(e) {
+  if (e.target.id === 'vte-ring' || e.target.id === 'vte-label') return;
+  e.preventDefault(); e.stopPropagation();
+  const el  = e.target;
+  const win = frameWin();
+  const doc = frameDoc();
+  if (!win || !doc) return;
+
+  // Build selector — prefer semantic attributes over Tailwind utility soup
+  const sel = bestSelector(el);
+
+  const cs = win.getComputedStyle(el);
+  const r  = el.getBoundingClientRect();
+  ST.selectedEl = {
+    selector: sel,
+    tag: el.tagName.toLowerCase(),
+    id: el.id || null,
+    classes: [...el.classList].filter(c => !/^vte/.test(c)),
+    rect: { left: r.left, top: r.top, width: r.width, height: r.height },
+    styles: {
+      backgroundColor:cs.backgroundColor, color:cs.color, borderColor:cs.borderColor,
+      fontSize:cs.fontSize, fontWeight:cs.fontWeight, lineHeight:cs.lineHeight,
+      letterSpacing:cs.letterSpacing, textAlign:cs.textAlign,
+      paddingTop:cs.paddingTop, paddingRight:cs.paddingRight,
+      paddingBottom:cs.paddingBottom, paddingLeft:cs.paddingLeft,
+      marginTop:cs.marginTop, marginBottom:cs.marginBottom,
+      width:cs.width, height:cs.height,
+      display:cs.display, borderRadius:cs.borderRadius, opacity:cs.opacity,
+    },
+  };
+  ST.pendingProps = {};
+
+  setPicking(false);
+  // Switch right panel to Inspect
+  document.querySelectorAll('[data-rtab]').forEach(b => b.classList.toggle('on', b.dataset.rtab === 'inspect'));
+  ST.rtab = 'inspect';
+  renderRightInspect();
+  renderBottomForEl(ST.selectedEl);
+}
+
+function onPickEsc(e) { if (e.key === 'Escape') setPicking(false); }
+
+function attachPickListeners() {
+  const doc = frameDoc();
+  if (!doc) return;
+  doc.addEventListener('mouseover', onPickHover, true);
+  doc.addEventListener('click',     onPickClick, true);
+  doc.addEventListener('keydown',   onPickEsc,   true);
+}
+
+function detachPickListeners() {
+  const doc = frameDoc();
+  if (!doc) return;
+  doc.removeEventListener('mouseover', onPickHover, true);
+  doc.removeEventListener('click',     onPickClick, true);
+  doc.removeEventListener('keydown',   onPickEsc,   true);
+}
+
+function cleanPick() {
+  detachPickListeners();
+  if (_pickStyle) { _pickStyle.remove(); _pickStyle = null; }
+  if (_pickRing)  { _pickRing.remove();  _pickRing  = null; }
+  if (_pickLabel) { _pickLabel.remove(); _pickLabel = null; }
+}
+
+function setPicking(on) {
+  ST.picking = on;
+  overlay.classList.toggle('active', on);
+  frameContainer.classList.toggle('picking', on);
+  document.getElementById('btn-pick').classList.toggle('active', on);
+
+  if (on) {
+    const doc = frameDoc();
+    if (doc) {
+      // Same-origin: direct DOM listeners (fast path)
+      ensurePickUI();
+      attachPickListeners();
+    }
+    // Also tell the bridge — works whether same-origin or not
+    try { frame.contentWindow?.postMessage({ type:'vtb:pick-mode', on: true }, '*'); } catch {}
+  } else {
+    detachPickListeners();
+    if (_pickStyle) { _pickStyle.remove(); _pickStyle = null; }
+    // keep ring visible on the selected element after picking
+    try { frame.contentWindow?.postMessage({ type:'vtb:pick-mode', on: false }, '*'); } catch {}
+  }
+}
+
+function togglePick() {
+  if (!ST.connected) { toast('Load an app first — enter URL and click Load →'); return; }
+  setPicking(!ST.picking);
+}
+
+document.getElementById('btn-pick').addEventListener('click', togglePick);
+document.addEventListener('keydown', e => {
+  if (e.key === 'p' && !e.target.matches('input,textarea,select')) togglePick();
+  if (e.key === 'Escape' && ST.picking) setPicking(false);
+});
+
+// ── Zoom ──────────────────────────────────────────────────────────────────
+const frameContainer = document.getElementById('frame-container');
+function setZoom(z) {
+  ST.zoom = Math.max(0.25, Math.min(2, z));
+  frameContainer.style.transform = `scale(${ST.zoom})`;
+  frameContainer.style.transformOrigin = 'top center';
+  document.getElementById('zoom-display').textContent = Math.round(ST.zoom*100) + '%';
+}
+document.getElementById('btn-zoom-in') .addEventListener('click', () => setZoom(ST.zoom + 0.1));
+document.getElementById('btn-zoom-out').addEventListener('click', () => setZoom(ST.zoom - 0.1));
+document.getElementById('btn-zoom-fit').addEventListener('click', () => {
+  const wrap = document.getElementById('canvas-wrap');
+  const z = Math.min((wrap.clientWidth - 40) / 1280, (wrap.clientHeight - 40) / 800);
+  setZoom(z);
+});
+
+// ── Sidebar toggles ────────────────────────────────────────────────────────
+document.getElementById('btn-left').addEventListener('click', () => {
+  ST.leftOpen = !ST.leftOpen;
+  document.getElementById('left-sidebar').classList.toggle('collapsed', !ST.leftOpen);
+  document.getElementById('btn-left').classList.toggle('on', ST.leftOpen);
+});
+document.getElementById('btn-right').addEventListener('click', () => {
+  ST.rightOpen = !ST.rightOpen;
+  document.getElementById('right-sidebar').classList.toggle('collapsed', !ST.rightOpen);
+  document.getElementById('btn-right').classList.toggle('on', ST.rightOpen);
+});
+document.getElementById('bottom-toggle-bar').addEventListener('click', () => {
+  ST.bottomOpen = !ST.bottomOpen;
+  const p = document.getElementById('bottom-panel');
+  p.classList.toggle('collapsed', !ST.bottomOpen);
+  if (ST.bottomOpen) p.style.height = '200px';
+});
+
+// ── Left sidebar tabs ──────────────────────────────────────────────────────
+document.querySelectorAll('[data-ltab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-ltab]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    ST.ltab = btn.dataset.ltab;
+    renderLeft();
+  });
+});
+
+// ── Right sidebar tabs ─────────────────────────────────────────────────────
+document.querySelectorAll('[data-rtab]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-rtab]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    ST.rtab = btn.dataset.rtab;
+    renderRight();
+  });
+});
+
+// ── Left: render ──────────────────────────────────────────────────────────
+function renderLeft() {
+  if (ST.ltab === 'components') renderLeftComponents();
+  else renderLeftDOM();
+}
+
+async function loadComponents() {
+  try {
+    ST.components = await fetch(`${SERVER}/components`).then(r => r.json());
+    if (ST.ltab === 'components') renderLeftComponents();
+  } catch {}
+}
+
+async function loadDesignCtx() {
+  try { ST.designCtx = await fetch(`${SERVER}/design-context`).then(r => r.json()); }
+  catch {}
+}
+
+function renderLeftComponents() {
+  const body = document.getElementById('left-body');
+  body.innerHTML = '';
+  if (!ST.components) { body.innerHTML = '<div class="empty">Loading components…</div>'; return; }
+  if (!ST.components.length) { body.innerHTML = '<div class="empty">No components found.</div>'; return; }
+
+  body.appendChild(el('div', { style:'font-size:10px;color:var(--dim);margin-bottom:8px;' },
+    `${ST.components.length} components`));
+
+  ST.components.forEach((comp, i) => {
+    const item = el('div', { className:'comp-item' });
+    item.appendChild(el('div', { className:'comp-item-name' }, comp.name));
+    item.appendChild(el('div', { className:'comp-item-file' }, comp.file));
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.comp-item').forEach(c => c.classList.remove('selected'));
+      item.classList.add('selected');
+      // Highlight in frame (direct DOM)
+      const kebab = comp.name.replace(/([A-Z])/g, m=>'-'+m.toLowerCase()).replace(/^-/,'');
+      directHighlight(`.${kebab}`);
+      renderBottomForComp(comp);
+    });
+    body.appendChild(item);
+  });
+
+  const rescan = el('button', { className:'btn sec sm', style:'width:100%;margin-top:8px;' }, '↺ Rescan');
+  rescan.addEventListener('click', () => { ST.components = null; loadComponents(); renderLeft(); });
+  body.appendChild(rescan);
+}
+
+function renderLeftDOM() {
+  const body = document.getElementById('left-body');
+  if (!ST.connected) { body.innerHTML = '<div class="empty">Load an app first.</div>'; return; }
+  body.innerHTML = '<div class="empty">Building DOM tree…</div>';
+  const doc = frameDoc();
+  if (!doc?.body) { body.innerHTML = '<div class="empty">Frame not accessible.</div>'; return; }
+  // Build tree directly from iframe DOM
+  const SKIP = /^(script|style|noscript|meta|link|head|svg|path|g)$/i;
+  function buildTree(node, depth) {
+    if (!node || depth > 5 || SKIP.test(node.tagName||'')) return null;
+    const cls = [...(node.classList||[])].filter(c=>/^[a-z]/.test(c)&&!/^vte/.test(c));
+    const sel  = node.id ? '#'+node.id : (cls.length ? node.tagName.toLowerCase()+'.'+cls[0] : node.tagName?.toLowerCase());
+    const txt  = node.childNodes.length===1&&node.firstChild?.nodeType===3 ? node.firstChild.textContent.trim().slice(0,40) : null;
+    const kids = [...(node.children||[])].map(c=>buildTree(c,depth+1)).filter(Boolean).slice(0,10);
+    return { tag:node.tagName?.toLowerCase(), sel, id:node.id||null, cls:cls.slice(0,3), kids, txt };
+  }
+  renderDOMTree(buildTree(doc.body, 0));
+}
+
+function renderDOMTree(tree) {
+  if (ST.ltab !== 'dom') return;
+  const body = document.getElementById('left-body');
+  body.innerHTML = '';
+  if (!tree) { body.innerHTML = '<div class="empty">Empty DOM.</div>'; return; }
+
+  function renderNode(node, depth) {
+    const item = el('div', { className:'tree-item' });
+    for (let i = 0; i < depth; i++) item.appendChild(el('span', { className:'ti-indent' }));
+    item.appendChild(el('span', { className:'ti-icon' }, node.kids?.length ? '▾' : '·'));
+    item.appendChild(el('span', { className:'ti-name' }, node.sel));
+    if (node.txt) item.appendChild(el('span', { className:'ti-tag' }, node.txt.slice(0,16)));
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.tree-item').forEach(i => i.classList.remove('selected'));
+      item.classList.add('selected');
+      directHighlight(node.sel);
+    });
+    body.appendChild(item);
+    (node.kids||[]).forEach(k => renderNode(k, depth + 1));
+  }
+
+  renderNode(tree, 0);
+}
+
+// ── Right: render ─────────────────────────────────────────────────────────
+function renderRight() {
+  if (ST.rtab === 'inspect')  renderRightInspect();
+  else if (ST.rtab === 'design') renderRightDesign();
+  else                           renderRightSession();
+}
+
+// ── Right Inspector — powered by Tweakpane ────────────────────────────────
+function renderRightInspect() {
+  const body = document.getElementById('right-body');
+  body.innerHTML = '';
+
+  // Destroy any existing Tweakpane instance before rebuilding
+  if (_pane) { try { _pane.dispose(); } catch {} _pane = null; }
+
+  // ── Selector bar ──────────────────────────────────────────────────────────
+  const selBar = el('div', { id:'sel-bar', className: ST.selectedEl ? '' : 'empty' });
+  const selInput = el('input', {
+    type:'text',
+    value: ST.selectedEl?.selector || '',
+    placeholder: 'Click ⊕ to pick an element',
+  });
+  selInput.addEventListener('change', e => {
+    const s = e.target.value.trim();
+    if (s) directHighlight(s);
+  });
+  selBar.appendChild(selInput);
+  body.appendChild(selBar);
+
+  if (!ST.selectedEl) {
+    body.appendChild(el('div', { className:'r-hint' },
+      'Use ⊕ in the toolbar (or press P)\nto pick any element on the canvas.'));
+    return;
+  }
+
+  // ── Build state objects from computed styles ───────────────────────────────
+  const s = ST.selectedEl.styles;
+
+  // Helper: safe parse of a computed px value
+  const px  = v => parseFloat(v) || 0;
+  const num = v => parseFloat(v) || 0;
+
+  const colorState = {
+    background: toHex(s.backgroundColor) || '#000000',
+    textColor:  toHex(s.color)           || '#000000',
+    border:     toHex(s.borderColor)     || '#000000',
+  };
+
+  const typState = {
+    fontSize:   px(s.fontSize)  || 14,
+    fontWeight: num(s.fontWeight) || 400,
+    lineHeight: num(s.lineHeight) || 1.5,
+    textAlign:  (s.textAlign && ['left','center','right','justify'].includes(s.textAlign))
+                  ? s.textAlign : 'left',
+  };
+
+  const spcState = {
+    paddingTop:    px(s.paddingTop),
+    paddingRight:  px(s.paddingRight),
+    paddingBottom: px(s.paddingBottom),
+    paddingLeft:   px(s.paddingLeft),
+    marginTop:     px(s.marginTop),
+    marginBottom:  px(s.marginBottom),
+  };
+
+  const layState = {
+    borderRadius: px(s.borderRadius),
+    opacity:      (s.opacity !== '' && s.opacity !== null) ? parseFloat(s.opacity) : 1,
+    display:      (['block','inline','inline-block','flex','inline-flex','grid','none']
+                    .includes(s.display)) ? s.display : 'block',
+    width:        s.width  || 'auto',
+    height:       s.height || 'auto',
+  };
+
+  // ── Create Tweakpane ───────────────────────────────────────────────────────
+  const paneWrap = el('div', { className:'tp-wrap' });
+  body.appendChild(paneWrap);
+
+  if (!Pane) {
+    paneWrap.innerHTML = '<div class="empty" style="color:var(--red)">Tweakpane failed to load — check browser console / network.</div>';
+    // Still render action row below
+  } else {
+    try { _pane = new Pane({ container: paneWrap }); } catch(err) {
+      paneWrap.innerHTML = `<div class="empty" style="color:var(--red)">Pane error: ${err.message}</div>`;
+    }
+  }
+  if (!_pane) {
+    // Skip binding setup — jump straight to action row
+    const row2 = el('div', { className:'act-row' });
+    row2.appendChild(Object.assign(el('button',{className:'btn sec sm',style:'flex:1'},'Reset'), {onclick:()=>{ST.pendingProps={};applyPreview();renderRightInspect();}}));
+    row2.appendChild(Object.assign(el('button',{className:'btn sm',style:'flex:2'},'Apply to Source'), {onclick:applyChanges}));
+    body.appendChild(row2);
+    return;
+  }
+
+  // ── Color folder ──────────────────────────────────────────────────────────
+  const colF = _pane.addFolder({ title: 'Color', expanded: true });
+  colF.addBinding(colorState, 'background', { label: 'Background' })
+    .on('change', ({ value }) => { ST.pendingProps['background-color'] = value; applyPreview(); });
+  colF.addBinding(colorState, 'textColor',  { label: 'Text Color' })
+    .on('change', ({ value }) => { ST.pendingProps['color'] = value; applyPreview(); });
+  colF.addBinding(colorState, 'border',     { label: 'Border' })
+    .on('change', ({ value }) => { ST.pendingProps['border-color'] = value; applyPreview(); });
+
+  // ── Typography folder ─────────────────────────────────────────────────────
+  const typF = _pane.addFolder({ title: 'Typography', expanded: false });
+  typF.addBinding(typState, 'fontSize',   { label: 'Size',    min: 6,   max: 96,  step: 1 })
+    .on('change', ({ value }) => { ST.pendingProps['font-size']   = value + 'px'; applyPreview(); });
+  typF.addBinding(typState, 'fontWeight', { label: 'Weight',  min: 100, max: 900, step: 100 })
+    .on('change', ({ value }) => { ST.pendingProps['font-weight'] = String(value); applyPreview(); });
+  typF.addBinding(typState, 'lineHeight', { label: 'Line H',  min: 0.8, max: 4,   step: 0.05 })
+    .on('change', ({ value }) => { ST.pendingProps['line-height'] = String(value); applyPreview(); });
+  typF.addBinding(typState, 'textAlign', { label: 'Align',
+    options: { Left: 'left', Center: 'center', Right: 'right', Justify: 'justify' },
+  }).on('change', ({ value }) => { ST.pendingProps['text-align'] = value; applyPreview(); });
+
+  // ── Spacing folder ────────────────────────────────────────────────────────
+  const spcF = _pane.addFolder({ title: 'Spacing', expanded: false });
+  spcF.addBinding(spcState, 'paddingTop',    { label: 'Pad T',    min: 0,   max: 120, step: 1 })
+    .on('change', ({ value }) => { ST.pendingProps['padding-top']    = value + 'px'; applyPreview(); });
+  spcF.addBinding(spcState, 'paddingRight',  { label: 'Pad R',    min: 0,   max: 120, step: 1 })
+    .on('change', ({ value }) => { ST.pendingProps['padding-right']  = value + 'px'; applyPreview(); });
+  spcF.addBinding(spcState, 'paddingBottom', { label: 'Pad B',    min: 0,   max: 120, step: 1 })
+    .on('change', ({ value }) => { ST.pendingProps['padding-bottom'] = value + 'px'; applyPreview(); });
+  spcF.addBinding(spcState, 'paddingLeft',   { label: 'Pad L',    min: 0,   max: 120, step: 1 })
+    .on('change', ({ value }) => { ST.pendingProps['padding-left']   = value + 'px'; applyPreview(); });
+  spcF.addBinding(spcState, 'marginTop',     { label: 'Margin T', min: -60, max: 120, step: 1 })
+    .on('change', ({ value }) => { ST.pendingProps['margin-top']     = value + 'px'; applyPreview(); });
+  spcF.addBinding(spcState, 'marginBottom',  { label: 'Margin B', min: -60, max: 120, step: 1 })
+    .on('change', ({ value }) => { ST.pendingProps['margin-bottom']  = value + 'px'; applyPreview(); });
+
+  // ── Layout folder ─────────────────────────────────────────────────────────
+  const layF = _pane.addFolder({ title: 'Layout', expanded: false });
+  layF.addBinding(layState, 'borderRadius', { label: 'Radius',  min: 0, max: 60, step: 1 })
+    .on('change', ({ value }) => { ST.pendingProps['border-radius'] = value + 'px'; applyPreview(); });
+  layF.addBinding(layState, 'opacity',      { label: 'Opacity', min: 0, max: 1,  step: 0.01 })
+    .on('change', ({ value }) => { ST.pendingProps['opacity']       = String(value); applyPreview(); });
+  layF.addBinding(layState, 'display', { label: 'Display',
+    options: { Block: 'block', Flex: 'flex', 'Inline-Flex': 'inline-flex', Grid: 'grid', Inline: 'inline', None: 'none' },
+  }).on('change', ({ value }) => { ST.pendingProps['display'] = value; applyPreview(); });
+  layF.addBinding(layState, 'width',  { label: 'Width' })
+    .on('change', ({ value }) => { ST.pendingProps['width']  = value; applyPreview(); });
+  layF.addBinding(layState, 'height', { label: 'Height' })
+    .on('change', ({ value }) => { ST.pendingProps['height'] = value; applyPreview(); });
+
+  // ── Action row ────────────────────────────────────────────────────────────
+  const row = el('div', { className:'act-row' });
+
+  const resetBtn = el('button', { className:'btn sec sm', style:'flex:1' }, 'Reset');
+  resetBtn.addEventListener('click', () => {
+    ST.pendingProps = {};
+    applyPreview();
+    renderRightInspect();
+    toast('Preview reset');
+  });
+
+  const applyBtn = el('button', { className:'btn sm', style:'flex:2' }, 'Apply to Source');
+  applyBtn.addEventListener('click', applyChanges);
+
+  row.appendChild(resetBtn);
+  row.appendChild(applyBtn);
+  body.appendChild(row);
+
+  // ── Tailwind class pills (if applicable) ──────────────────────────────────
+  const comp = ST.components?.find(c => {
+    const kebab = c.name.replace(/([A-Z])/g, m => '-' + m.toLowerCase()).replace(/^-/, '');
+    return ST.selectedEl?.selector?.includes(kebab)
+        || ST.selectedEl?.classes?.some(cl => cl.includes(kebab));
+  });
+  if (comp) {
+    fetch(`${SERVER}/component-classes?file=${encodeURIComponent(comp.file)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.classUsages?.length) return;
+        const sec = el('div', { className:'r-section', style:'margin-top:8px;' });
+        sec.appendChild(el('div', { className:'r-sec-ttl' }, 'Tailwind Classes  · click to copy'));
+        const pills = el('div', { style:'display:flex;flex-wrap:wrap;gap:4px;' });
+        const byTag = new Map();
+        data.classUsages.forEach(u => {
+          if (!byTag.has(u.tag)) byTag.set(u.tag, new Set());
+          u.classes.forEach(c => byTag.get(u.tag).add(c));
+        });
+        byTag.forEach(classes => {
+          classes.forEach(cls => {
+            const p = el('span', { className:'pill' }, cls);
+            p.addEventListener('click', () => {
+              navigator.clipboard?.writeText(cls).catch(() => {});
+              toast('Copied: ' + cls, 1200);
+            });
+            pills.appendChild(p);
+          });
+        });
+        sec.appendChild(pills);
+        body.appendChild(sec);
+      }).catch(() => {});
+  }
+}
+
+// ── Smart selector builder (shadcn/Radix/Recurly-aware) ───────────────────
+// Priority: #id > data-slot (shadcn) > data-radix-* > [role] > non-utility class > tag
+const TAILWIND_UTIL = /^(flex|grid|block|inline|hidden|absolute|relative|fixed|sticky|static|overflow|truncate|sr-only|not-sr|w-|h-|min-|max-|p-|px-|py-|pt-|pr-|pb-|pl-|m-|mx-|my-|mt-|mr-|mb-|ml-|gap-|space-|col-|row-|order-|basis-|grow|shrink|text-|font-|leading-|tracking-|align-|justify-|items-|self-|content-|bg-|border|rounded|shadow|opacity-|z-|cursor-|select-|resize|appearance|outline|ring-|transition|duration|ease|delay|animate|transform|scale|rotate|translate|skew|origin|fill-|stroke-|from-|via-|to-|decoration|underline|line-through|no-underline|capitalize|uppercase|lowercase|normal-|italic|not-italic|antialiased|subpixel|tabular|proportional|ordinal|slashed|lining|oldstyle|pointer|focus|hover|active|disabled|group|peer|data-\[|aria-|dark:|sm:|md:|lg:|xl:)/;
+
+function bestSelector(el) {
+  if (!el) return '';
+
+  const attr = n => el.getAttribute?.(n);
+
+  // 1. Stable ID — skip React/Radix auto-generated ones like ":r0:", "radix-:r1:"
+  if (el.id && !/^[:r]|^(radix-|vte|vtb)/.test(el.id)) return '#' + el.id;
+
+  // 2. shadcn / NextUI — data-slot="button|card|input|..."  (both use same attr)
+  const slot = attr('data-slot');
+  if (slot) return `[data-slot="${slot}"]`;
+
+  // 3. Ark UI / Park UI / Zag — data-part="trigger|content|..."
+  const part = attr('data-part');
+  if (part) return `[data-part="${part}"]`;
+
+  // 4. Headless UI — data-headlessui-state is set but data-headlessui-id is better
+  const huiId = attr('data-headlessui-id');
+  if (huiId) return `[data-headlessui-id="${huiId}"]`;
+
+  // 5. Non-Tailwind, non-hashed semantic classes
+  //    Catches: Mantine (.mantine-Button-root), MUI (.MuiButton-root),
+  //             Recurly UI Kit (.rui-card), BEM (.block__element), custom (.gateway-card)
+  const HASHED = /^(css-[a-z0-9]{4,}|[a-z]-[a-z0-9]{6,}|sc-[a-zA-Z0-9]+)$/; // Chakra/Emotion/SC hashes
+  const meaningful = [...(el.classList||[])].filter(c =>
+    !TAILWIND_UTIL.test(c) &&
+    !HASHED.test(c) &&
+    !/^(vte|vtb|vt-)/.test(c) &&
+    c.length > 2
+  );
+  if (meaningful.length) return el.tagName.toLowerCase() + '.' + meaningful.slice(0,2).join('.');
+
+  // 6. ARIA role — good for Radix / Headless UI unstyled primitives
+  const role = attr('role');
+  if (role && role !== 'none' && role !== 'presentation') {
+    return `${el.tagName.toLowerCase()}[role="${role}"]`;
+  }
+
+  // 7. Radix data-state qualifier — e.g. button[data-state="open"]
+  const state = attr('data-state');
+  if (state) return `${el.tagName.toLowerCase()}[data-state="${state}"]`;
+
+  // 8. NextUI / Radix data-focus / data-selected
+  for (const a of ['data-selected','data-active','data-checked','data-orientation']) {
+    const v = attr(a);
+    if (v !== null && v !== undefined) return `${el.tagName.toLowerCase()}[${a}]`;
+  }
+
+  // 9. Walk up one level and qualify — last resort before bare tag
+  const parent = el.parentElement;
+  if (parent && parent !== frameDoc()?.body && parent !== frameDoc()?.documentElement) {
+    const ps = bestSelector(parent);
+    if (ps && ps !== parent.tagName?.toLowerCase()) {
+      return `${ps} > ${el.tagName.toLowerCase()}`;
+    }
+  }
+
+  // 10. Bare tag
+  return el.tagName.toLowerCase();
+}
+
+// ── Direct highlight (no pick mode, just scroll+ring) ─────────────────────
+function directHighlight(selector) {
+  const doc = frameDoc();
+  const win = frameWin();
+  if (!doc || !win) return;
+  try {
+    const target = doc.querySelector(selector);
+    if (!target) return;
+    target.scrollIntoView({ behavior:'smooth', block:'center' });
+    ensurePickUI();
+    posRing(target);
+  } catch {}
+}
+
+// ── Direct DOM preview (no postMessage) ───────────────────────────────────
+function applyPreview() {
+  const doc = frameDoc();
+  if (!doc) return;
+  let s = doc.getElementById('vte-preview');
+  if (!s) { s = doc.createElement('style'); s.id = 'vte-preview'; doc.head.appendChild(s); }
+  const sel   = ST.selectedEl?.selector || '';
+  const decls = Object.entries(ST.pendingProps).map(([k,v]) => `  ${k}: ${v} !important;`).join('\n');
+  s.textContent = (sel && decls) ? `${sel} {\n${decls}\n}` : '';
+}
+
+async function applyChanges() {
+  const entries = Object.entries(ST.pendingProps);
+  const sel     = ST.selectedEl?.selector;
+  if (!sel || !entries.length) { toast('Nothing to apply'); return; }
+
+  if (ST.sessionActive) {
+    entries.forEach(([css, value]) => {
+      ST.sessionChanges.push({ id: Date.now()+Math.random(), selector:sel, property:css, value, source:'inspector' });
+    });
+    ST.pendingProps = {};
+    applyPreview();
+    toast(`⏺ Added ${entries.length} change(s) to session`);
+    renderRightInspect();
+    return;
+  }
+
+  let last;
+  for (const [css, value] of entries) {
+    try {
+      const r = await fetch(`${SERVER}/apply`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ selector:sel, property:css, value }),
+      });
+      last = await r.json();
+    } catch { toast('Server error', 3000); return; }
+  }
+  if (last?.success) {
+    toast(`✓ Saved ${entries.length} prop(s) → ${last.file}`);
+    ST.pendingProps = {};
+    applyPreview();
+  } else {
+    toast('Error: ' + (last?.error||'unknown'), 3500);
+  }
+}
+
+// ── Right: Design tab (token editor, minimal) ──────────────────────────────
+function renderRightDesign() {
+  const body = document.getElementById('right-body');
+  body.innerHTML = '<div class="empty">Scanning tokens…</div>';
+  fetch(`${SERVER}/scan-tokens`).then(r=>r.json()).then(tokens => {
+    body.innerHTML = '';
+    const cats = ['colors','typography','spacing','shadows','radius','motion','other'];
+    let any = false;
+    for (const cat of cats) {
+      const list = tokens[cat] || [];
+      if (!list.length) continue;
+      any = true;
+      const sec = el('div', { className:'r-section' });
+      sec.appendChild(el('div', { className:'r-sec-ttl' }, cat + ` (${list.length})`));
+      list.slice(0,20).forEach(tok => {
+        const row = el('div', { style:'display:flex;align-items:center;gap:6px;margin-bottom:5px;' });
+        row.appendChild(el('span', { style:'font:10px/1 ui-monospace,monospace;color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;', title:tok.name }, tok.name));
+        if (cat === 'colors') {
+          const ci = el('input', { type:'color', className:'r-clr', value: toHex(tok.value)||'#000000' });
+          row.appendChild(ci);
+        }
+        const ti = el('input', { type:'text', className:'r-in', value:tok.value, style:'max-width:110px;' });
+        row.appendChild(ti);
+        sec.appendChild(row);
+      });
+      body.appendChild(sec);
+    }
+    if (!any) body.innerHTML = '<div class="empty">No CSS custom properties or SCSS variables found.</div>';
+  }).catch(() => {
+    body.innerHTML = '<div class="empty">Could not reach server.</div>';
+  });
+}
+
+// ── Right: Session tab ─────────────────────────────────────────────────────
+function renderRightSession() {
+  const body = document.getElementById('right-body');
+  body.innerHTML = '';
+
+  // Record toggle
+  const recRow = el('div', { style:'display:flex;align-items:center;gap:8px;margin-bottom:10px;' });
+  const recLbl = el('span', { style:`font-size:11px;flex:1;color:${ST.sessionActive?'oklch(0.7 0.22 20)':'var(--dim)'}` },
+    ST.sessionActive ? '🔴  Recording…' : '⚫  Session recording off');
+  const recBtn = el('button', { className:'btn sec sm' }, ST.sessionActive ? 'Stop' : 'Start Recording');
+  recBtn.addEventListener('click', () => {
+    ST.sessionActive = !ST.sessionActive;
+    toast(ST.sessionActive ? '⏺ Recording — Apply buffers here, not files' : '⏹ Stopped', 2200);
+    renderRightSession();
+  });
+  recRow.appendChild(recLbl); recRow.appendChild(recBtn);
+  body.appendChild(recRow);
+
+  if (!ST.sessionChanges.length) {
+    body.appendChild(el('div', { className:'empty' }, 'No changes recorded yet.'));
+  } else {
+    body.appendChild(el('div', { className:'r-sec-ttl' }, `Changes (${ST.sessionChanges.length})`));
+    const bySel = new Map();
+    ST.sessionChanges.forEach(ch => { if (!bySel.has(ch.selector)) bySel.set(ch.selector,[]); bySel.get(ch.selector).push(ch); });
+    bySel.forEach((changes, selector) => {
+      const item = el('div', { className:'sess-item' });
+      item.appendChild(el('div', { className:'sess-sel', title:selector }, selector));
+      changes.forEach(ch => {
+        const row = el('div', { className:'sess-prop' });
+        row.appendChild(el('span', { className:'sess-key' }, ch.property+':'));
+        row.appendChild(el('span', { className:'sess-val' }, ch.value));
+        const d = el('button', { className:'sess-del', title:'Remove' }, '×');
+        d.addEventListener('click', () => { ST.sessionChanges = ST.sessionChanges.filter(x=>x.id!==ch.id); renderRightSession(); });
+        row.appendChild(d);
+        item.appendChild(row);
+      });
+      body.appendChild(item);
+    });
+
+    const clear = el('button', { className:'btn sec sm', style:'width:100%;margin-bottom:10px;' }, '× Clear All');
+    clear.addEventListener('click', () => { ST.sessionChanges = []; renderRightSession(); });
+    body.appendChild(clear);
+  }
+
+  if (ST.sessionChanges.length > 0) {
+    const genBtn = el('button', { className:'btn sm', style:'width:100%;margin-bottom:8px;' }, '⚡ Generate & Copy Prompt');
+    const out    = el('div', { className:'prompt-out' }, 'Click Generate…');
+    genBtn.addEventListener('click', async () => {
+      genBtn.textContent = 'Scanning…'; genBtn.disabled = true;
+      try {
+        const ctx  = ST.designCtx || await fetch(`${SERVER}/design-context`).then(r=>r.json());
+        const text = buildPrompt(ST.sessionChanges, ctx);
+        out.textContent = text;
+        await navigator.clipboard.writeText(text).catch(()=>{});
+        toast('✓ Prompt copied to clipboard!', 2400);
+        genBtn.textContent = '✓ Copied! Generate Again';
+      } catch { genBtn.textContent = '⚡ Generate & Copy Prompt'; }
+      genBtn.disabled = false;
+    });
+    body.appendChild(genBtn);
+    body.appendChild(out);
+  }
+}
+
+function buildPrompt(changes, ctx) {
+  const L = [];
+  L.push('# Visual Design Changes — Claude Code Implementation Brief');
+  L.push('');
+  L.push('Captured via WYSIWYG visual editor on the live dev server. Each change was');
+  L.push('visually verified — selector matched a real DOM element. Please implement');
+  L.push('in the cleanest way for this codebase.');
+  L.push('');
+  L.push('## Design System Context');
+  if (ctx?.libraries?.length) { L.push(''); L.push('**Libraries:** ' + ctx.libraries.join(', ')); }
+  if (ctx?.tailwind?.colors && Object.keys(ctx.tailwind.colors).length) {
+    L.push(''); L.push(`**Tailwind config** (${ctx.tailwind.file}):`);
+    Object.entries(ctx.tailwind.colors).slice(0,10).forEach(([k,v]) => L.push(`  ${k}: ${v}`));
+  }
+  const cvaComps = (ctx?.components||[]).filter(c=>c.type==='cva');
+  if (cvaComps.length) {
+    L.push(''); L.push('**Component variant system (cva):' );
+    cvaComps.slice(0,6).forEach(c => {
+      L.push(`  ${c.name}: ${c.variants?.map(v=>`${v.name}(${v.options?.join('|')})`).join(', ')}`);
+    });
+  }
+  L.push(''); L.push('## Recorded Changes'); L.push('');
+  const bySel = new Map();
+  changes.forEach(ch => { if (!bySel.has(ch.selector)) bySel.set(ch.selector,[]); bySel.get(ch.selector).push(ch); });
+  let i = 1;
+  bySel.forEach((chs, sel) => {
+    L.push(`### ${i++}. \`${sel}\``);
+    L.push('```css'); chs.forEach(ch => L.push(`${ch.property}: ${ch.value};`)); L.push('```'); L.push('');
+  });
+  L.push('## Implementation Notes');
+  L.push('- Prefer CVA variant updates over raw CSS for shadcn/Radix components');
+  L.push('- Use Tailwind utilities if they map cleanly to the value');
+  L.push('- Reference existing design tokens rather than hardcoding values');
+  L.push('- Only modify the selectors listed. Preserve all other variants.');
+  return L.join('\n');
+}
+
+// ── Bottom: Storybook-style variant panel ──────────────────────────────────
+function renderBottomForEl(elInfo) {
+  if (!ST.components || !elInfo) return;
+  const kebab = cls => cls.replace(/([A-Z])/g,m=>'-'+m.toLowerCase()).replace(/^-/,'');
+  const comp = ST.components.find(c =>
+    elInfo.classes?.some(cl => cl.toLowerCase().includes(c.name.toLowerCase()) || cl.toLowerCase().includes(kebab(c.name)))
+  );
+  if (comp) renderBottomForComp(comp);
+}
+
+function renderBottomForComp(comp) {
+  document.getElementById('bottom-comp-name').textContent = comp.name;
+  const body = document.getElementById('bottom-body');
+  body.innerHTML = '';
+
+  // Get cva variants for this component
+  const cvaInfo = ST.designCtx?.components?.filter(c => c.type==='cva' && c.name === comp.name);
+  const classUsages = [];
+
+  // Fetch class usages
+  fetch(`${SERVER}/component-classes?file=${encodeURIComponent(comp.file)}`)
+    .then(r=>r.json())
+    .then(data => {
+      // Build variant cards from cva info
+      if (cvaInfo?.length) {
+        cvaInfo[0].variants?.forEach(variant => {
+          variant.options?.forEach(opt => {
+            const card = el('div', { className:'story-card' });
+            const preview = el('div', { className:'story-preview' });
+            preview.appendChild(el('div', {
+              style:`font-size:11px;color:var(--acc);font-family:ui-monospace,monospace;`,
+            }, `${variant.name}="${opt}"`));
+            card.appendChild(preview);
+            const meta = el('div', { className:'story-meta' });
+            meta.appendChild(el('div', { className:'story-name' }, opt));
+            meta.appendChild(el('div', { className:'story-classes' }, `${variant.name}: ${opt}`));
+            card.appendChild(meta);
+            card.addEventListener('click', () => {
+              document.querySelectorAll('.story-card').forEach(c=>c.classList.remove('selected'));
+              card.classList.add('selected');
+              toast(`Variant: ${variant.name}="${opt}"`, 1200);
+            });
+            body.appendChild(card);
+          });
+        });
+      } else if (data.classUsages?.length) {
+        // Fallback: show by element tag
+        data.classUsages.slice(0,8).forEach(u => {
+          const card = el('div', { className:'story-card' });
+          const preview = el('div', { className:'story-preview' });
+          preview.appendChild(el('div', {
+            style:'font-size:11px;color:var(--acc);font-family:ui-monospace,monospace;',
+          }, '<' + u.tag + '>'));
+          card.appendChild(preview);
+          const meta = el('div', { className:'story-meta' });
+          meta.appendChild(el('div', { className:'story-name' }, u.tag));
+          meta.appendChild(el('div', { className:'story-classes' }, u.classes.slice(0,4).join(' ')));
+          card.appendChild(meta);
+          body.appendChild(card);
+        });
+      } else {
+        body.innerHTML = '<div class="story-hint">No variants or class usages found for this component.</div>';
+      }
+    }).catch(() => {
+      body.innerHTML = '<div class="story-hint">Could not load component data.</div>';
+    });
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+renderLeft();
+renderRight();
+
+// Auto-load on startup if URL already in bar
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const url = document.getElementById('url-bar').value.trim();
+    if (url && url !== 'http://localhost:5173') loadApp();
+  }, 100);
+});
+</script>
+</body>
+</html>

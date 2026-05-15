@@ -1,0 +1,13 @@
+{
+  "name": "visual-tweak",
+  "version": "1.0.0",
+  "description": "Local WYSIWYG CSS editor server for React + CSS/SCSS projects",
+  "scripts": {
+    "start": "node visual-tweak-server.js"
+  },
+  "devDependencies": {
+    "chokidar": "^3.6.0",
+    "express": "^4.19.2",
+    "ws": "^8.17.1"
+  }
+}
